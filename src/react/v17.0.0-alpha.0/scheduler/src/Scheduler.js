@@ -21,7 +21,7 @@ import {
   forceFrameRate,
   requestPaint,
 } from './SchedulerHostConfig';
-import {push, pop, peek} from './SchedulerMinHeap';
+import { push, pop, peek } from './SchedulerMinHeap';
 
 // TODO: Use symbols?
 import {
@@ -79,6 +79,8 @@ var isHostCallbackScheduled = false;
 var isHostTimeoutScheduled = false;
 
 function advanceTimers(currentTime) {
+  // advanceTimers 在timerqueque中循环，直到找到第一个timer没有被取消且不过期的任务然后返回。
+  // 将timerQueue里面的加到taskQueue里面
   // Check for tasks that are no longer delayed and add them to the queue.
   let timer = peek(timerQueue);
   while (timer !== null) {
@@ -120,6 +122,7 @@ function handleTimeout(currentTime) {
 }
 
 function flushWork(hasTimeRemaining, initialTime) {
+  // initialTime could be currentTime
   if (enableProfiling) {
     markSchedulerUnsuspended(initialTime);
   }
@@ -170,8 +173,8 @@ function workLoop(hasTimeRemaining, initialTime) {
     !(enableSchedulerDebugging && isSchedulerPaused)
   ) {
     if (
-      currentTask.expirationTime > currentTime &&
-      (!hasTimeRemaining || shouldYieldToHost())
+      currentTask.expirationTime > currentTime && // 不找到从什么地方进来的，按理来说setTimeout handleTimeout 进来的应该不会存在这种情况
+      (!hasTimeRemaining || shouldYieldToHost()) // 没时间了跳出
     ) {
       // This currentTask hasn't expired, and we've reached the deadline.
       break;
@@ -206,6 +209,11 @@ function workLoop(hasTimeRemaining, initialTime) {
   if (currentTask !== null) {
     return true;
   } else {
+    // 如果currentTask为空，说明taskQueue队列中的任务已经都
+    // 执行完了，然后从timerQueue中找任务，调用requestHostTimeout
+    // 去把task放到taskQueue中，到时会再次发起调度，但是这次，
+    // 会先return false，告诉外部当前的taskQueue已经清空，
+    // 先停止执行任务，也就是终止任务调度
     const firstTimer = peek(timerQueue);
     if (firstTimer !== null) {
       requestHostTimeout(handleTimeout, firstTimer.startTime - currentTime);
@@ -263,7 +271,7 @@ function unstable_next(eventHandler) {
 
 function unstable_wrapCallback(callback) {
   var parentPriorityLevel = currentPriorityLevel;
-  return function() {
+  return function () {
     // This is a fork of runWithPriority, inlined for performance.
     var previousPriorityLevel = currentPriorityLevel;
     currentPriorityLevel = parentPriorityLevel;
@@ -338,7 +346,7 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
         isHostTimeoutScheduled = true;
       }
       // Schedule a timeout.
-      requestHostTimeout(handleTimeout, startTime - currentTime);
+      requestHostTimeout(handleTimeout, startTime - currentTime); // 这个有可能减出一个负数
     }
   } else {
     newTask.sortIndex = expirationTime;
@@ -447,8 +455,8 @@ export {
   unstable_flushUntilNextPaint,
   unstable_flushAll,
   unstable_yieldValue,
-  unstable_advanceTime
-} from "./forks/SchedulerHostConfig.mock.js";
+  unstable_advanceTime,
+} from './forks/SchedulerHostConfig.mock.js';
 
 export {
   requestHostCallback,
@@ -457,5 +465,5 @@ export {
   shouldYieldToHost,
   getCurrentTime,
   forceFrameRate,
-  requestPaint
-} from "./forks/SchedulerHostConfig.default.js";
+  requestPaint,
+} from './forks/SchedulerHostConfig.default.js';

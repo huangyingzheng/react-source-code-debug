@@ -1,3 +1,4 @@
+/* eslint-disable default-case */
 /**
  * Copyright (c) Facebook, Inc. and its affiliates.
  *
@@ -164,7 +165,7 @@ if (supportsMutation) {
         appendInitialChild(parent, node.stateNode);
       } else if (enableFundamentalAPI && node.tag === FundamentalComponent) {
         appendInitialChild(parent, node.stateNode.instance);
-      } else if (node.tag === HostPortal) {
+      } else if (node.tag === HostPortal) { // 这里指的是弹窗
         // If we have a portal child, then we don't want to traverse
         // down its children. Instead, we'll get insertions from each child in
         // the portal directly.
@@ -684,6 +685,7 @@ function completeWork(
       popHostContext(workInProgress);
       const rootContainerInstance = getRootHostContainer();
       const type = workInProgress.type;
+      // 上一次存在这个节点且有dom结构
       if (current !== null && workInProgress.stateNode != null) {
         updateHostComponent(
           current,

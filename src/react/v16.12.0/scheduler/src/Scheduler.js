@@ -21,7 +21,7 @@ import {
   forceFrameRate,
   requestPaint,
 } from './SchedulerHostConfig';
-import {push, pop, peek} from './SchedulerMinHeap';
+import { push, pop, peek } from './SchedulerMinHeap';
 
 // TODO: Use symbols?
 import {
@@ -103,8 +103,9 @@ function advanceTimers(currentTime) {
 }
 
 function handleTimeout(currentTime) {
+  // 如果没有到期任务循环第一个任务的到期时间调用自身
   isHostTimeoutScheduled = false;
-  advanceTimers(currentTime);
+  advanceTimers(currentTime); // 隔一段时间清理一次到期任务，把timeQueue放到taskQueue里面
 
   if (!isHostCallbackScheduled) {
     if (peek(taskQueue) !== null) {
@@ -125,15 +126,17 @@ function flushWork(hasTimeRemaining, initialTime) {
   }
 
   // We'll need a host callback the next time work is scheduled.
+  // 保证下一个cb可以被调用，在function handelTime 里面需要这个值是false
   isHostCallbackScheduled = false;
   if (isHostTimeoutScheduled) {
+    // 任务已经开始跑了，计时器不需要了
     // We scheduled a timeout but it's no longer needed. Cancel it.
     isHostTimeoutScheduled = false;
     cancelHostTimeout();
   }
 
   isPerformingWork = true;
-  const previousPriorityLevel = currentPriorityLevel;
+  const previousPriorityLevel = currentPriorityLevel; // 保存当前任务优先级，因为执行中会被重写
   try {
     if (enableProfiling) {
       try {
@@ -153,7 +156,7 @@ function flushWork(hasTimeRemaining, initialTime) {
   } finally {
     currentTask = null;
     currentPriorityLevel = previousPriorityLevel;
-    isPerformingWork = false;
+    isPerformingWork = false; // 结束工作，等待下一次的调度
     if (enableProfiling) {
       const currentTime = getCurrentTime();
       markSchedulerSuspended(currentTime);
@@ -162,8 +165,9 @@ function flushWork(hasTimeRemaining, initialTime) {
 }
 
 function workLoop(hasTimeRemaining, initialTime) {
-  let currentTime = initialTime;
+  let currentTime = initialTime; // 这个initialTime 是调度时候的时间, 而加入taskQueue是刚刚发生的，所以有可能这个currentTime的时间线小于experationTime
   advanceTimers(currentTime);
+  /* TODO: 一个currentTask是一个Fiber吗？ */
   currentTask = peek(taskQueue);
   while (
     currentTask !== null &&
@@ -182,7 +186,8 @@ function workLoop(hasTimeRemaining, initialTime) {
       currentPriorityLevel = currentTask.priorityLevel;
       const didUserCallbackTimeout = currentTask.expirationTime <= currentTime;
       markTaskRun(currentTask, currentTime);
-      const continuationCallback = callback(didUserCallbackTimeout);
+      const continuationCallback = callback(didUserCallbackTimeout); // 在这里执行
+      // 这里会跳到performConcurrentWorkOnRoot
       currentTime = getCurrentTime();
       if (typeof continuationCallback === 'function') {
         currentTask.callback = continuationCallback;
@@ -200,7 +205,7 @@ function workLoop(hasTimeRemaining, initialTime) {
     } else {
       pop(taskQueue);
     }
-    currentTask = peek(taskQueue);
+    currentTask = peek(taskQueue); // 清空taskQueue
   }
   // Return whether there's additional work
   if (currentTask !== null) {
@@ -263,7 +268,7 @@ function unstable_next(eventHandler) {
 
 function unstable_wrapCallback(callback) {
   var parentPriorityLevel = currentPriorityLevel;
-  return function() {
+  return function () {
     // This is a fork of runWithPriority, inlined for performance.
     var previousPriorityLevel = currentPriorityLevel;
     currentPriorityLevel = parentPriorityLevel;
@@ -293,7 +298,7 @@ function timeoutForPriorityLevel(priorityLevel) {
 }
 
 function unstable_scheduleCallback(priorityLevel, callback, options) {
-  var currentTime = getCurrentTime();
+  var currentTime = getCurrentTime(); /*  获取当前时间 */
 
   var startTime;
   var timeout;
@@ -309,6 +314,17 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
         ? options.timeout
         : timeoutForPriorityLevel(priorityLevel);
   } else {
+    /* 这里是将优先级转译成具体的事件，这个事件是一个Magic_Constant */
+    /* var maxSigned31BitInt = 1073741823;
+    // Times out immediately
+    var IMMEDIATE_PRIORITY_TIMEOUT = -1;
+    // Eventually times out
+    var USER_BLOCKING_PRIORITY = 250;
+    var NORMAL_PRIORITY_TIMEOUT = 5000;
+    var LOW_PRIORITY_TIMEOUT = 10000;
+    // Never times out
+    var IDLE_PRIORITY = maxSigned31BitInt; */
+
     timeout = timeoutForPriorityLevel(priorityLevel);
     startTime = currentTime;
   }
@@ -331,13 +347,14 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
     // This is a delayed task.
     newTask.sortIndex = startTime;
     push(timerQueue, newTask);
+    // 所有的任务都不需要立即执行，那么都y
     if (peek(taskQueue) === null && newTask === peek(timerQueue)) {
       // All tasks are delayed, and this is the task with the earliest delay.
       if (isHostTimeoutScheduled) {
         // Cancel an existing timeout.
         cancelHostTimeout();
       } else {
-        isHostTimeoutScheduled = true;
+        isHostTimeoutScheduled = true; // 开始调度任务
       }
       // Schedule a timeout.
       requestHostTimeout(handleTimeout, startTime - currentTime);
@@ -353,7 +370,8 @@ function unstable_scheduleCallback(priorityLevel, callback, options) {
     // wait until the next time we yield.
     if (!isHostCallbackScheduled && !isPerformingWork) {
       isHostCallbackScheduled = true;
-      requestHostCallback(flushWork);
+      // requestHostCallback  这个函数是找调度者执行函数， 发指令来调度
+      requestHostCallback(flushWork); // 推入taskQueue，如果不在工作且不在调度，那么执行时taskQueue并清空
     }
   }
 
@@ -449,8 +467,8 @@ export {
   unstable_flushUntilNextPaint,
   unstable_flushAll,
   unstable_yieldValue,
-  unstable_advanceTime
-} from "./forks/SchedulerHostConfig.mock.js";
+  unstable_advanceTime,
+} from './forks/SchedulerHostConfig.mock.js';
 
 export {
   requestHostCallback,
@@ -459,6 +477,5 @@ export {
   shouldYieldToHost,
   getCurrentTime,
   forceFrameRate,
-  requestPaint
-} from "./forks/SchedulerHostConfig.default.js";
-
+  requestPaint,
+} from './forks/SchedulerHostConfig.default.js';

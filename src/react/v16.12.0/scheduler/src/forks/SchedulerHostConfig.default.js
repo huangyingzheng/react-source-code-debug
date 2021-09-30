@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {enableIsInputPending} from '../SchedulerFeatureFlags';
+import { enableIsInputPending } from '../SchedulerFeatureFlags';
 
 export let requestHostCallback;
 export let cancelHostCallback;
@@ -27,11 +27,11 @@ if (
   // fallback to a naive implementation.
   let _callback = null;
   let _timeoutID = null;
-  const _flushCallback = function() {
+  const _flushCallback = function () {
     if (_callback !== null) {
       try {
         const currentTime = getCurrentTime();
-        const hasRemainingTime = true;
+        const hasRemainingTime = true; // 这个一直是true
         _callback(hasRemainingTime, currentTime);
         _callback = null;
       } catch (e) {
@@ -41,31 +41,32 @@ if (
     }
   };
   const initialTime = Date.now();
-  getCurrentTime = function() {
+  getCurrentTime = function () {
     return Date.now() - initialTime;
   };
-  requestHostCallback = function(cb) {
+  requestHostCallback = function (cb) {
     if (_callback !== null) {
       // Protect against re-entrancy.
-      setTimeout(requestHostCallback, 0, cb);
+      // 如果正在执行的任务还没有完成，那么看看下个事件循环该任务完成没有
+      setTimeout(requestHostCallback, 0, cb); // 本次调度如果有任务没完成，那么下个把任务推到下一个事件循环
     } else {
       _callback = cb;
-      setTimeout(_flushCallback, 0);
+      setTimeout(_flushCallback, 0); // 在下一个事件循环开始的时候执行
     }
   };
-  cancelHostCallback = function() {
+  cancelHostCallback = function () {
     _callback = null;
   };
-  requestHostTimeout = function(cb, ms) {
+  requestHostTimeout = function (cb, ms) {
     _timeoutID = setTimeout(cb, ms);
   };
-  cancelHostTimeout = function() {
+  cancelHostTimeout = function () {
     clearTimeout(_timeoutID);
   };
-  shouldYieldToHost = function() {
+  shouldYieldToHost = function () {
     return false;
   };
-  requestPaint = forceFrameRate = function() {};
+  requestPaint = forceFrameRate = function () {};
 } else {
   // Capture local references to native APIs, in case a polyfill overrides them.
   const performance = window.performance;
@@ -85,7 +86,7 @@ if (
       console['error'](
         "This browser doesn't support requestAnimationFrame. " +
           'Make sure that you load a ' +
-          'polyfill in older browsers. https://fb.me/react-polyfills',
+          'polyfill in older browsers. https://fb.me/react-polyfills'
       );
     }
     if (typeof cancelAnimationFrame !== 'function') {
@@ -93,7 +94,7 @@ if (
       console['error'](
         "This browser doesn't support cancelAnimationFrame. " +
           'Make sure that you load a ' +
-          'polyfill in older browsers. https://fb.me/react-polyfills',
+          'polyfill in older browsers. https://fb.me/react-polyfills'
       );
     }
   }
@@ -131,7 +132,7 @@ if (
     navigator.scheduling.isInputPending !== undefined
   ) {
     const scheduling = navigator.scheduling;
-    shouldYieldToHost = function() {
+    shouldYieldToHost = function () {
       const currentTime = getCurrentTime();
       if (currentTime >= deadline) {
         // There's no time left. We may want to yield control of the main
@@ -155,26 +156,26 @@ if (
       }
     };
 
-    requestPaint = function() {
+    requestPaint = function () {
       needsPaint = true;
     };
   } else {
     // `isInputPending` is not available. Since we have no way of knowing if
     // there's pending input, always yield at the end of the frame.
-    shouldYieldToHost = function() {
+    shouldYieldToHost = function () {
       return getCurrentTime() >= deadline;
     };
 
     // Since we yield every frame regardless, `requestPaint` has no effect.
-    requestPaint = function() {};
+    requestPaint = function () {};
   }
 
-  forceFrameRate = function(fps) {
+  forceFrameRate = function (fps) {
     if (fps < 0 || fps > 125) {
       // Using console['error'] to evade Babel and ESLint
       console['error'](
         'forceFrameRate takes a positive int between 0 and 125, ' +
-          'forcing framerates higher than 125 fps is not unsupported',
+          'forcing framerates higher than 125 fps is not unsupported'
       );
       return;
     }
@@ -197,7 +198,7 @@ if (
       try {
         const hasMoreWork = scheduledHostCallback(
           hasTimeRemaining,
-          currentTime,
+          currentTime
         );
         if (!hasMoreWork) {
           isMessageLoopRunning = false;
@@ -225,25 +226,25 @@ if (
   const port = channel.port2;
   channel.port1.onmessage = performWorkUntilDeadline;
 
-  requestHostCallback = function(callback) {
+  requestHostCallback = function (callback) {
     scheduledHostCallback = callback;
     if (!isMessageLoopRunning) {
       isMessageLoopRunning = true;
-      port.postMessage(null);
+      port.postMessage(null); // 这里调用的是port1.onmessage 执行的函数
     }
   };
 
-  cancelHostCallback = function() {
+  cancelHostCallback = function () {
     scheduledHostCallback = null;
   };
 
-  requestHostTimeout = function(callback, ms) {
+  requestHostTimeout = function (callback, ms) {
     taskTimeoutID = setTimeout(() => {
       callback(getCurrentTime());
     }, ms);
   };
 
-  cancelHostTimeout = function() {
+  cancelHostTimeout = function () {
     clearTimeout(taskTimeoutID);
     taskTimeoutID = -1;
   };

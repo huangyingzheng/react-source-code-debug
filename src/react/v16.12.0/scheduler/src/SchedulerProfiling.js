@@ -7,10 +7,10 @@
  * @flow
  */
 
-import type {PriorityLevel} from './SchedulerPriorities';
-import {enableProfiling} from './SchedulerFeatureFlags';
+import type { PriorityLevel } from './SchedulerPriorities';
+import { enableProfiling } from './SchedulerFeatureFlags';
 
-import {NoPriority} from './SchedulerPriorities';
+import { NoPriority } from './SchedulerPriorities';
 
 let runIdCounter: number = 0;
 let mainThreadIdCounter: number = 0;
@@ -72,7 +72,7 @@ function logEvent(entries) {
         // Using console['error'] to evade Babel and ESLint
         console['error'](
           "Scheduler Profiling: Event log exceeded maximum size. Don't " +
-            'forget to call `stopLoggingProfilingEvents()`.',
+            'forget to call `stopLoggingProfilingEvents()`.'
         );
         stopLoggingProfilingEvents();
         return;
@@ -108,7 +108,7 @@ export function markTaskStart(
     priorityLevel: PriorityLevel,
     ...
   },
-  ms: number,
+  ms: number
 ) {
   if (enableProfiling) {
     profilingState[QUEUE_SIZE]++;
@@ -128,7 +128,7 @@ export function markTaskCompleted(
     priorityLevel: PriorityLevel,
     ...
   },
-  ms: number,
+  ms: number
 ) {
   if (enableProfiling) {
     profilingState[PRIORITY] = NoPriority;
@@ -147,7 +147,7 @@ export function markTaskCanceled(
     priorityLevel: PriorityLevel,
     ...
   },
-  ms: number,
+  ms: number
 ) {
   if (enableProfiling) {
     profilingState[QUEUE_SIZE]--;
@@ -164,7 +164,7 @@ export function markTaskErrored(
     priorityLevel: PriorityLevel,
     ...
   },
-  ms: number,
+  ms: number
 ) {
   if (enableProfiling) {
     profilingState[PRIORITY] = NoPriority;
@@ -183,9 +183,10 @@ export function markTaskRun(
     priorityLevel: PriorityLevel,
     ...
   },
-  ms: number,
+  ms: number
 ) {
   if (enableProfiling) {
+    console.log('enableProfiling', enableProfiling);
     runIdCounter++;
 
     profilingState[PRIORITY] = task.priorityLevel;
@@ -198,7 +199,7 @@ export function markTaskRun(
   }
 }
 
-export function markTaskYield(task: {id: number, ...}, ms: number) {
+export function markTaskYield(task: { id: number, ... }, ms: number) {
   if (enableProfiling) {
     profilingState[PRIORITY] = NoPriority;
     profilingState[CURRENT_TASK_ID] = 0;
